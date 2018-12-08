@@ -1,0 +1,117 @@
+---
+title: "Machine Learning Project"
+author: "Sarah Allyssa S. Solidum"
+date: "December 02, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Executive Summary
+## Background 
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+## About the Project
+
+The goal of your project is to predict the manner in which they did the exercise. This is the "classe" variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+#Import Libraries and Load Data
+
+Download training and test data sets and save it in a variable. 
+```{r}
+library(caret)
+library(kernlab)
+library(ggplot2)
+library(lattice)
+library(rpart.plot)
+
+train <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"),header=TRUE)
+test <- read.csv(url("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"),header=TRUE)
+
+```
+
+## Cleaning and Partitioning of Data sets
+
+In this section, we take the training set, and we split the training set itself up, into training and test sets. But first, data should be filtered to eliminate unwanted data like NA and blank values in most observation values. 
+```{r pressure, echo=FALSE}
+
+rem_NA <- which(colSums(is.na(train) |train=="")>0.95*dim(train)[1]) 
+train <- train[, -rem_NA]
+
+rem_NA <- which(colSums(is.na(test) |test=="")>0.95*dim(test)[1]) 
+test <- test[, -rem_NA]
+
+
+train <- train[,-(1:5)]
+test <- test[,-1]
+
+train_part<- createDataPartition(y=train$classe, p=0.7, list=FALSE)
+training <- train[train_part, ]
+testing <- train[-train_part, ]
+```
+
+# Choosing Prediction Model
+
+There are different ways to predict outcomes but choosing 2 most relevant approach at the very start of the proccess can save so much time to solve a specific problem like this one. One thing to do after choosing a specific algorithm is to check the model complexity of the data sets. In this case, the model has more computational overhead, thus choosing decision tree and random forest are the models relevant to problem. 
+
+## Predicting with Trees
+### Pros
+1. Easy to interpret
+2. Better performance in nonlinear settings
+
+### Cons
+1. Without pruning/cross-validation can lead to overfitting 
+2. Harder to estimate uncertainty 
+3. Results may be variable
+
+```{r}
+set.seed(11)
+modFitTree <- train(classe~., data = training[-1], method="rpart")
+modFitTree
+rpart.plot(modFitTree$finalModel, main = "Decision Tree Accuracy Plot")
+```
+
+It can be observed that the acccuracy of the model is at maximum of 54% with a kappa statistic of 41%. According to the result using decision tree, the accurracy and the kappa statistic is very low (less than 60%). However, it can still be used to predict and see if the accurracy are low.   
+
+```{r}
+TreePred<- predict(modFitTree, testing)
+confusionMatrix(TreePred, testing$classe)
+```
+
+Using this model to predict my testing data, it shows that  the accuracy is about 50% and still very low. 
+
+## Random Forest
+### Pros
+1. Accuracy
+
+### Cons
+1. Speed
+2. Interpetability
+3. Overfitting
+
+
+```{r}
+set.seed(11)
+modFit <- train(classe~., data = training[-1], method="rf")
+modFit
+plot(modFit, main = "Random Forest Accuracy Plot")
+```
+
+It can be observed that the accuracy of the model is at maximum 99.5% with a kappa statistic of 99.48%. With random forest, the accuracy can reach up to 99.5% with just 27 mtry. Now, the model can be use to predict my testing data set and show the accuracy. 
+
+```{r}
+RFPred <- predict(modFit, testing)
+confusionMatrix(RFPred, testing$classe)
+```
+Looking at the overall statistics, the model is very accurate with 99.78%. 
+# Conclusion
+Comparing both models, we can safely say that random forest is a far better model. Therefore, this model will be used to predict the classe for the test data set. 
+
+### Random Forest Prediction
+```{r}
+RFP <- predict(modFit, newdata = test)
+RFP
+```
